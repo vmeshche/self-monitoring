@@ -85,7 +85,7 @@
     - name: copy docker-compose file
       ansible.builtin.template:
         src: './templates/docker-compose.yml.j2'
-        dest: '{{ docker_compose_staff }}'
+        dest: '{{ docker_compose_staff }}/docker-compose.yml'
         mode: '0755'
         owner: monitoring
         group: monitoring
