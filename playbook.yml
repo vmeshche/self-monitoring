@@ -49,9 +49,6 @@
         daemon_reload: yes
 
 
-
-
-
     - name: Ensure group "monitoring" exists
       ansible.builtin.group:
         name: monitoring
@@ -96,4 +93,4 @@
       community.docker.docker_compose:
         project_name: monitoring
         project_src: '{{ docker_compose_staff }}'
-        state: absent
+        state: present
