@@ -1,49 +1,58 @@
 ---
 - name: Prepare monitoring item
-  hosts: all
+  hosts: default
   become: yes
   vars:
-    node_exporter_version: "1.3.1"
-    node_exporter_platform: "linux"
-    docker_compose_staff: "/opt/docker-compose/"
-    grafana_dashboard: "https://grafana.com/api/dashboards/1860"
-    grafana_dashboard_version: "latest"
+    node_exporter_version: '1.3.1'
+    node_exporter_platform: 'linux'
+    docker_compose_staff: '/opt/docker-compose/'
+    grafana_dashboard: 'https://grafana.com/api/dashboards/1860'
+    grafana_dashboard_version: 'latest'
+    grafana_dashboard_file_name: 'prom_monitor.json'
+    grafana_admin_pass: 'pass'  # =)
+    grafana_port: '3000'  # port will be forwarded on host from container and VM
   tasks:
     - name: install requirements
-      apt:
+      ansible.builtin.apt:
         pkg: 
         - ca-certificates
         - curl
         - gnupg
         update_cache: yes
+
     - name: add GPG key for docker repository
-      apt_key:
+      ansible.builtin.apt_key:
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
+
     - name: add docker repository
-      apt_repository:
+      ansible.builtin.apt_repository:
         repo: deb https://download.docker.com/linux/ubuntu focal stable
         state: present
+
     - name: install docker
-      apt:
+      ansible.builtin.apt:
         pkg:
         - docker-ce
         - docker-compose
         state: latest
         update_cache: yes
 
+
     - name: install prometheus node exporter
       ansible.builtin.unarchive:
-        src: 'https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}//node_exporter-{{ node_exporter_version }}.{{ node_exporter_platform }}-amd64.tar.gz'
+        src: 'https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.{{ node_exporter_platform }}-amd64.tar.gz'
         dest: /usr/local/bin/
         remote_src: yes
         extra_opts: [--strip-components=1]
+
     - name: init node_exporter service
       ansible.builtin.copy:
         src: files/node_exporter.service
         dest: /lib/systemd/system/node_exporter.service
+
     - name: start node_exporter
-      systemd: 
+      ansible.builtin.systemd: 
         name: node_exporter
         state: started
         daemon_reload: yes
@@ -53,11 +62,13 @@
       ansible.builtin.group:
         name: monitoring
         state: present
+
     - name: add user to own monitoring staff
       ansible.builtin.user:
         name: monitoring
         groups: monitoring
         append: yes
+
     - name: create docker-compose services data folders
       ansible.builtin.file:
         path: '{{ item }}'
@@ -68,9 +79,18 @@
       loop:
         - '{{ docker_compose_staff }}/data/grafana'
         - '{{ docker_compose_staff }}/data/prometheus'
-        - '{{ docker_compose_staff }}/provisioning'
-        - '{{ docker_compose_staff }}/dashboards'
-    - name: copy docker-compose files  and services configs
+        - '{{ docker_compose_staff }}/grafana/provisioning'
+        - '{{ docker_compose_staff }}/grafana/dashboards'
+
+    - name: copy docker-compose file
+      ansible.builtin.template:
+        src: './templates/docker-compose.yml.j2'
+        dest: '{{ docker_compose_staff }}'
+        mode: '0755'
+        owner: monitoring
+        group: monitoring
+
+    - name: copy docker-compose staff
       ansible.builtin.copy:
         src: '{{ item.src }}'
         dest: '{{ item.dest }}'
@@ -78,13 +98,13 @@
         owner: monitoring
         group: monitoring
       loop:
-        - { src: 'files/docker-compose.yml', dest: '{{ docker_compose_staff }}' }
         - { src: 'files/prometheus.yml', dest: '{{ docker_compose_staff }}' }
-        - { src: 'files/grafana_datasource_prom.yml', dest: '{{ docker_compose_staff }}/provisioning' }
+        - { src: 'files/grafana_datasource_prom.yml', dest: '{{ docker_compose_staff }}/grafana/provisioning' }
+
     - name: 'download Grafana dashboard {{ grafana_dashboard }}'
       ansible.builtin.get_url:
         url: '{{ grafana_dashboard }}/revisions/{{ grafana_dashboard_version }}/download'
-        dest: '{{ docker_compose_staff }}/dashboards/prom_monitor.json'
+        dest: '{{ docker_compose_staff }}/grafana/dashboards/{{ grafana_dashboard_file_name }}'
         mode: '0755'
         owner: monitoring
         group: monitoring

@@ -12,10 +12,10 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-    ports:
-      - "9090:9090"  # to debug prom
     extra_hosts:
-      - "host.docker.internal:172.17.0.1"  # initiate host ip in container
+      # initiate host ip in container. 
+      # It is needed to get into container a node exporter hosted on VM.
+      - "host.docker.internal:172.17.0.1"  
 
   grafana:
     image: grafana/grafana:latest
@@ -24,11 +24,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./data/grafana:/var/lib/grafana
-      - ./dashboards:/usr/share/grafana/public/dashboards
-      - ./provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/usr/share/grafana/public/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=pass
-      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/usr/share/grafana/public/dashboards/prom_monitor.json
+      - GF_SECURITY_ADMIN_PASSWORD={{ grafana_admin_pass }}
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/usr/share/grafana/public/dashboards/{{ grafana_dashboard_file_name }}
     ports:
-      - "3000:3000"
+      - "{{ grafana_port }}:{{ grafana_port }}"
 
